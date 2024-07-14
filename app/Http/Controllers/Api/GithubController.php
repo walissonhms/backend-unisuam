@@ -17,25 +17,39 @@ class GithubController extends Controller {
     public function getUserFollowing(string $username): JsonResponse {
         $githubResponse = $this->githubService->getUserFollowing($username);
 
-        if ($githubResponse['error'] ?? false) {
-            $this->logError($username, $githubResponse['error']);
-            return response()->json(['error' => $githubResponse['error']], 400);
+        if ($this->hasError($githubResponse)) {
+            return $this->handleErrorResponse($username, $githubResponse['error']);
         }
-    
-        $followingLogins = array_map(static function (array $following) {
-            return $following['login'];
-        }, $githubResponse['following']);
-    
+
+        $followingData = $githubResponse['following'] ?? [];
+        $followingLogins = array_map(static function (array $followingData) {
+            return $followingData['login'];
+        }, $followingData);
+
+        if (!isset($githubResponse['user']['login'])) {
+            return $this->handleUserLoginNotFoundResponse($username);
+        }
+
         $this->logUserFollowing($githubResponse['user']['login'], $followingLogins);
-    
+
         return response()->json($githubResponse);
     }
 
-    private function logError(string $username, string $error): void {
-        Log::Log($username, $error);
+    protected function hasError(array $response): bool {
+        return $response['error'] ?? false;
     }
-    
-    private function logUserFollowing(string $username, array $followingLogins): void {
-        Log::Log($username, $followingLogins);
+
+    protected function handleErrorResponse(string $username, string $error): JsonResponse {
+        Log::error("Error fetching user following for {$username}: {$error}");
+        return response()->json(['error' => $error], 400);
+    }
+
+    protected function handleUserLoginNotFoundResponse(string $username): JsonResponse {
+        Log::error("User login not found in GitHub response for {$username}");
+        return response()->json(['error' => 'User login not found'], 400);
+    }
+
+    protected function logUserFollowing(string $login, array $followingLogins): void {
+        Log::info("User {$login} is following: " . implode(', ', $followingLogins));
     }
 }

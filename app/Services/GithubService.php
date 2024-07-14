@@ -32,8 +32,8 @@ class GithubService {
         }
 
         return [
-            'user' => $userData,
-            'following' => $followingData,
+            'user' => $userData ?? null,
+            'following' => $followingData ?? null,
         ];
     }
 
